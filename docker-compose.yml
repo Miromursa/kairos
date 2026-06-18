@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   vllm-primary:
     # Pinned tag. Update only after testing new versions.
