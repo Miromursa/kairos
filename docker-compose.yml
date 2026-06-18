@@ -1,0 +1,128 @@
+version: "3.9"
+
+services:
+  vllm-primary:
+    # Pinned tag. Update only after testing new versions.
+    image: vllm/vllm-openai:v0.8.2
+    container_name: vllm-primary
+    restart: unless-stopped
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0,1
+      - CUDA_VISIBLE_DEVICES=0,1
+      - HF_HOME=/hf-cache
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+    volumes:
+      - ${HF_CACHE_DIR}:/hf-cache
+    ports:
+      - "127.0.0.1:8001:8000"
+    command: >
+      --model ${PRIMARY_MODEL}
+      --tensor-parallel-size 2
+      --gpu-memory-utilization 0.92
+      --max-model-len 32768
+      --enable-auto-tool-choice
+      --tool-call-parser qwen
+      --served-model-name qwen-primary
+      --host 0.0.0.0
+      --port 8000
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - llm-stack
+    mem_limit: 64g
+    cpus: "20"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  vllm-utility:
+    image: vllm/vllm-openai:v0.8.2
+    container_name: vllm-utility
+    restart: unless-stopped
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=2
+      - CUDA_VISIBLE_DEVICES=2
+      - HF_HOME=/hf-cache
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+    volumes:
+      - ${HF_CACHE_DIR}:/hf-cache
+    ports:
+      - "127.0.0.1:8002:8000"
+    command: >
+      --model ${UTILITY_MODEL}
+      --tensor-parallel-size 1
+      --gpu-memory-utilization 0.92
+      --max-model-len 32768
+      --enable-auto-tool-choice
+      --tool-call-parser qwen
+      --served-model-name qwen-coder
+      --host 0.0.0.0
+      --port 8000
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - llm-stack
+    mem_limit: 32g
+    cpus: "10"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  litellm-proxy:
+    image: ghcr.io/berriai/litellm:v1.72.0
+    container_name: litellm-proxy
+    restart: unless-stopped
+    depends_on:
+      vllm-primary:
+        condition: service_healthy
+      vllm-utility:
+        condition: service_healthy
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+    volumes:
+      - ${PROJECT_DIR}/configs/litellm_config.yaml:/app/config.yaml
+    ports:
+      - "0.0.0.0:4000:4000"
+    command: >
+      --config /app/config.yaml
+      --port 4000
+      --host 0.0.0.0
+    networks:
+      - llm-stack
+    mem_limit: 4g
+    cpus: "2"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+networks:
+  llm-stack:
+    driver: bridge

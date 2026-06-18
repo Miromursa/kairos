@@ -1,0 +1,17 @@
+# Secrets
+.env
+.env.*
+
+# Logs
+*.log
+docker-logs/
+
+# Agent repos (installed by script, not part of this repo)
+agents/
+
+# HuggingFace cache (user-specific, very large)
+hf-cache/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,42 @@
+model_list:
+  # Local vLLM backends
+  - model_name: qwen-primary
+    litellm_params:
+      model: openai/qwen-primary
+      api_base: http://vllm-primary:8000/v1
+      api_key: none
+      rpm: 100
+
+  - model_name: qwen-coder
+    litellm_params:
+      model: openai/qwen-coder
+      api_base: http://vllm-utility:8000/v1
+      api_key: none
+      rpm: 100
+
+  # ------------------------------------------------------------------
+  # CLOUD ENDPOINTS — MANUALLY ACTIVATED ONLY
+  # Uncomment the blocks below and restart litellm-proxy to enable.
+  # Keep keys in .env (never commit).
+  # ------------------------------------------------------------------
+
+  # - model_name: claude-opus
+  #   litellm_params:
+  #     model: anthropic/claude-opus-4
+  #     api_key: os.environ/ANTHROPIC_API_KEY
+
+  # - model_name: gpt-4o
+  #   litellm_params:
+  #     model: openai/gpt-4o
+  #     api_key: os.environ/OPENAI_API_KEY
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  timeout: 120
+  cooldown_time: 30
+
+litellm_settings:
+  drop_params: true
+  success_callback: []
+  failure_callback: []
